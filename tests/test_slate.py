@@ -27,6 +27,16 @@ class SlateTest(unittest.TestCase):
             "targets": "8",
             "carries": "1",
         }
+        weekly = dict(base)
+        weekly.pop("recent_team")
+        weekly["team"] = "KC"
+        weekly["passing_interceptions"] = "1"
+        weekly["fantasy_points_ppr"] = ""
+        weekly["passing_yards"] = "0"
+        counted = _stat_row(weekly, {(2024, 3, "KC")}, {}, set())
+        self.assertEqual(counted.team, "KC")
+        self.assertAlmostEqual(counted.points, -2.0)
+
         home = _stat_row(base, {(2024, 3, "KC")}, {}, set())
         self.assertEqual(home.site, "home")
         self.assertEqual(home.is_home, 1)

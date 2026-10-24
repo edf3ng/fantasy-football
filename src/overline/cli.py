@@ -124,7 +124,7 @@ def _select(payload: dict, season: int | None, week: int | None) -> dict | None:
     if not weeks:
         return None
     if season is None and week is None:
-        return weeks[-1]
+        return weeks[payload.get("featured", len(weeks) - 1)]
     for item in weeks:
         if season is not None and item["season"] != season:
             continue

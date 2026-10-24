@@ -5,13 +5,16 @@ from __future__ import annotations
 import csv
 import os
 import random
+import urllib.error
 import urllib.request
 from pathlib import Path
 
 from overline.features import POSITIONS, GameLog
 from overline.scoring import ppr_points
 
-STATS_URL = "https://github.com/nflverse/nflverse-data/releases/download/player_stats/player_stats.csv"
+WEEKLY_URL = (
+    "https://github.com/nflverse/nflverse-data/releases/download/stats_player/stats_player_week_{season}.csv"
+)
 GAMES_URL = "https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv"
 FIRST_SEASON = 2023
 CACHE_FIELDS = (
@@ -142,29 +145,38 @@ def fetch_logs(path: Path | None = None, refresh: bool = False) -> Path:
     with temporary.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=CACHE_FIELDS)
         writer.writeheader()
-        with urllib.request.urlopen(_request(STATS_URL), timeout=180) as response:
-            text = (line.decode("utf-8") for line in response)
-            for row in csv.DictReader(text):
-                log = _stat_row(row, home_teams, opponents, neutral)
-                if log is None:
+        for season in range(FIRST_SEASON, FIRST_SEASON + 8):
+            try:
+                response = urllib.request.urlopen(_request(WEEKLY_URL.format(season=season)), timeout=180)
+            except urllib.error.HTTPError as exc:
+                if exc.code == 404 and kept:
+                    break
+                if exc.code == 404:
                     continue
-                writer.writerow(
-                    {
-                        "player_id": log.player_id,
-                        "name": log.name,
-                        "position": log.position,
-                        "team": log.team,
-                        "season": log.season,
-                        "week": log.week,
-                        "points": f"{log.points:.4f}",
-                        "targets": f"{log.targets:.4f}",
-                        "carries": f"{log.carries:.4f}",
-                        "opponent": log.opponent,
-                        "is_home": log.is_home,
-                        "site": log.site,
-                    }
-                )
-                kept += 1
+                raise
+            with response:
+                text = (line.decode("utf-8") for line in response)
+                for row in csv.DictReader(text):
+                    log = _stat_row(row, home_teams, opponents, neutral)
+                    if log is None:
+                        continue
+                    writer.writerow(
+                        {
+                            "player_id": log.player_id,
+                            "name": log.name,
+                            "position": log.position,
+                            "team": log.team,
+                            "season": log.season,
+                            "week": log.week,
+                            "points": f"{log.points:.4f}",
+                            "targets": f"{log.targets:.4f}",
+                            "carries": f"{log.carries:.4f}",
+                            "opponent": log.opponent,
+                            "is_home": log.is_home,
+                            "site": log.site,
+                        }
+                    )
+                    kept += 1
     if kept == 0:
         temporary.unlink(missing_ok=True)
         raise RuntimeError("nflverse response did not include any skill-position games")
@@ -224,7 +236,13 @@ def _stat_row(row: dict, home_teams: set, opponents: dict, neutral: set) -> Game
     else:
         is_home, site = 0, "away"
     raw_points = row.get("fantasy_points_ppr")
-    points = _float(raw_points) if raw_points not in (None, "") else ppr_points(row)
+    if raw_points not in (None, ""):
+        points = _float(raw_points)
+    else:
+        counting = dict(row)
+        if not counting.get("interceptions"):
+            counting["interceptions"] = counting.get("passing_interceptions")
+        points = ppr_points(counting)
     name = row.get("player_display_name") or row.get("player_name") or player_id
     return GameLog(
         player_id=player_id,

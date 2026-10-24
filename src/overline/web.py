@@ -171,7 +171,7 @@ data.weeks.forEach((week, index) => {
   option.textContent = week.season + " week " + week.week;
   weekSelect.appendChild(option);
 });
-if (data.weeks.length) weekSelect.value = String(data.weeks.length - 1);
+if (data.weeks.length) weekSelect.value = String(data.featured || 0);
 
 weekSelect.addEventListener("change", () => {
   selected = 0;
@@ -203,6 +203,8 @@ function opponent(player) {
 
 function render() {
   const week = data.weeks[Number(weekSelect.value)];
+  const partial = week && week.partial ? " This week is only partly posted, so the list is whoever has a stat line so far." : "";
+  document.getElementById("note").textContent = data.note + partial;
   document.getElementById("listed").textContent = week ? String(week.players.length) : "0";
   document.getElementById("board-rate").textContent = week ? rate(week.hits, week.players.length) : "—";
   document.getElementById("base-rate").textContent = week ? rate(week.eligible_hits, week.eligible) : "—";

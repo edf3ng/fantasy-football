@@ -68,7 +68,7 @@ For a player in week `t`:
 
 ## Data
 
-Public nflverse weekly player stats and schedules. `fetch` keeps regular-season QB, RB, WR, and TE games from 2023 forward in `data/cache/logs.csv` (gitignored). Points are nflverse PPR, which is the standard 1 point per reception scoring.
+Public nflverse weekly player stats (`stats_player_week_<season>.csv`) and schedules. `fetch` keeps regular-season QB, RB, WR, and TE games from 2023 through the latest season that release includes, in `data/cache/logs.csv` (gitignored). Points are nflverse PPR. A week with fewer than 250 skill-position lines is marked partial and is not the week the board opens on.
 
 A built-in sample league (four teams, synthetic names, two short seasons) runs with no download. Sample results are labeled synthetic and are not NFL records.
 

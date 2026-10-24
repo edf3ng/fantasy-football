@@ -7,6 +7,9 @@ from overline.model import fit_model
 from overline.rank import MIN_PROJECTION, TOP_N, rank_week
 
 MIN_TRAIN = 60
+# A full skill-position slate is a few hundred players. Fewer than this means
+# the week is still being posted, so it should not be the week the board opens on.
+FULL_SLATE = 250
 
 
 def assemble(
@@ -42,6 +45,7 @@ def assemble(
                 {
                     "season": key[0],
                     "week": key[1],
+                    "slate": len(week_rows),
                     "eligible": len(eligible),
                     "eligible_hits": eligible_hits,
                     "hits": hits,
@@ -50,10 +54,18 @@ def assemble(
             )
         train.extend(week_rows)
 
+    saw_full_slate = any(week["slate"] >= FULL_SLATE for week in weeks)
+    for week in weeks:
+        week["partial"] = saw_full_slate and week["slate"] < FULL_SLATE
+    featured = len(weeks) - 1 if weeks else 0
+    for index, week in enumerate(weeks):
+        if not week["partial"]:
+            featured = index
     return {
         "source": source,
         "note": note,
         "min_projection": min_projection,
+        "featured": featured,
         "weeks": weeks,
     }
 
