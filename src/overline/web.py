@@ -223,7 +223,10 @@ function render() {
   if (selected >= week.players.length) selected = 0;
   week.players.forEach((player, index) => {
     const row = document.createElement("tr");
+    row.setAttribute("role", "button");
+    row.tabIndex = 0;
     row.setAttribute("aria-selected", index === selected ? "true" : "false");
+    row.setAttribute("aria-label", player.name + " context window");
     const actual = document.createElement("td");
     actual.textContent = points(player.actual);
     actual.className = player.beat ? "hit" : "miss";
@@ -244,9 +247,16 @@ function render() {
       row.appendChild(cell);
     });
     row.appendChild(actual);
-    row.addEventListener("click", () => {
+    function choose() {
       selected = index;
       render();
+    }
+    row.addEventListener("click", choose);
+    row.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        choose();
+      }
     });
     rowsEl.appendChild(row);
   });
