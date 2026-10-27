@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import os
 import random
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -31,6 +32,10 @@ CACHE_FIELDS = (
     "is_home",
     "site",
 )
+
+
+def schedule_path() -> Path:
+    return cache_path().with_name("schedule.csv")
 
 
 def cache_path() -> Path:
@@ -130,6 +135,41 @@ def load_cache(path: Path | None = None) -> list[GameLog]:
     return logs
 
 
+def fetch_schedule(path: Path | None = None, refresh: bool = False) -> Path:
+    """Save the nflverse schedule, including games that do not have a score yet."""
+    file_path = path or schedule_path()
+    if file_path.exists() and not refresh:
+        return file_path
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = file_path.with_suffix(".csv.partial")
+    with urllib.request.urlopen(_request(GAMES_URL), timeout=120) as response:
+        temporary.write_bytes(response.read())
+    temporary.replace(file_path)
+    return file_path
+
+
+def load_schedule(path: Path | None = None) -> list[dict]:
+    file_path = path or schedule_path()
+    with file_path.open(newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def refresh_caches(max_age_seconds: int = 180) -> None:
+    """Download stats and the schedule when the cache is older than max_age_seconds."""
+    logs_path = cache_path()
+    games_path = schedule_path()
+    logs_stale = not logs_path.exists() or _age_seconds(logs_path) > max_age_seconds
+    games_stale = not games_path.exists() or _age_seconds(games_path) > max_age_seconds
+    if logs_stale:
+        fetch_logs(refresh=True)
+    elif games_stale:
+        fetch_schedule(refresh=True)
+
+
+def _age_seconds(path: Path) -> float:
+    return max(0.0, time.time() - path.stat().st_mtime)
+
+
 def fetch_logs(path: Path | None = None, refresh: bool = False) -> Path:
     """Download nflverse stats and schedules into a compact cache.
 
@@ -139,7 +179,8 @@ def fetch_logs(path: Path | None = None, refresh: bool = False) -> Path:
     if file_path.exists() and not refresh:
         return file_path
     file_path.parent.mkdir(parents=True, exist_ok=True)
-    home_teams, opponents, neutral = _schedule()
+    fetch_schedule(refresh=refresh)
+    home_teams, opponents, neutral = _schedule(schedule_path())
     temporary = file_path.with_suffix(".csv.partial")
     kept = 0
     with temporary.open("w", newline="") as handle:
@@ -184,13 +225,14 @@ def fetch_logs(path: Path | None = None, refresh: bool = False) -> Path:
     return file_path
 
 
-def _schedule() -> tuple[set[tuple[int, int, str]], dict[tuple[int, int, str], str], set[tuple[int, int, str]]]:
+def _schedule(
+    path: Path | None = None,
+) -> tuple[set[tuple[int, int, str]], dict[tuple[int, int, str], str], set[tuple[int, int, str]]]:
     home_teams: set[tuple[int, int, str]] = set()
     opponents: dict[tuple[int, int, str], str] = {}
     neutral: set[tuple[int, int, str]] = set()
-    with urllib.request.urlopen(_request(GAMES_URL), timeout=120) as response:
-        text = (line.decode("utf-8") for line in response)
-        for row in csv.DictReader(text):
+    with (path or schedule_path()).open(newline="") as handle:
+        for row in csv.DictReader(handle):
             if row.get("game_type") not in ("REG", ""):
                 continue
             season = _int(row.get("season"))

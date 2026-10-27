@@ -5,8 +5,9 @@ from __future__ import annotations
 import argparse
 
 from overline.board import assemble
-from overline.slate import cache_path, fetch_logs, load_cache, sample_logs
-from overline.web import serve
+from overline.slate import cache_path, fetch_logs, load_cache, load_schedule, refresh_caches, sample_logs
+from overline.upcoming import predict_upcoming
+from overline.web import serve, serve_live
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -31,6 +32,8 @@ def main(argv: list[str] | None = None) -> int:
     _add_slate_flags(server)
     server.add_argument("--port", type=int, default=8765)
 
+    sub.add_parser("predict", help="Rank players in games that have not been played")
+
     args = parser.parse_args(argv)
     if args.command == "fetch":
         path = fetch_logs(refresh=args.refresh)
@@ -39,6 +42,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Cached {len(logs)} games in {path}")
         if seasons:
             print(f"Seasons {seasons[0]}–{seasons[-1]}")
+        return 0
+
+    if args.command == "predict":
+        return _print_upcoming(_build_live())
+    if args.command == "serve" and not args.sample:
+        serve_live(_build_live, args.port)
         return 0
 
     payload = _payload(args.sample)
@@ -51,6 +60,32 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "backtest":
         return _print_backtest(payload)
     return _print_rank(payload, args.season, args.week)
+
+
+def _build_live() -> dict:
+    refresh_caches()
+    return predict_upcoming(load_cache(), load_schedule())
+
+
+def _print_upcoming(payload: dict) -> int:
+    print(payload["note"])
+    print(f"Model fit through {payload.get('trained_through', '')}")
+    if not payload["weeks"]:
+        print("No unplayed games in the next three weeks.")
+        return 1
+    for slate in payload["weeks"]:
+        print(f"\n{slate['label']}  {slate.get('kickoff', '')}")
+        if not slate["players"]:
+            print("  No player cleared the line.")
+            continue
+        for index, player in enumerate(slate["players"], start=1):
+            opp = f"@{player['opponent']}" if player["site"] == "away" else player["opponent"]
+            print(
+                f"{index:>2} {player['name']:<22} {player['position']:<3} {player['team']:<4} {opp:<8} "
+                f"line {player['projection']:5.1f}  model {player['expected']:5.1f}  "
+                f"{player['edge']:+4.1f}  {player['p_beat']*100:3.0f}%"
+            )
+    return 0
 
 
 def _add_slate_flags(parser: argparse.ArgumentParser) -> None:

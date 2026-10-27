@@ -27,9 +27,9 @@ PYTHONPATH=src python3 -m overline backtest
 PYTHONPATH=src python3 -m overline serve
 ```
 
-`fetch` writes `data/cache/logs.csv` from the nflverse weekly files, regular-season QB, RB, WR, and TE games from 2023 through the latest season that release includes. The cache is gitignored. `rank` prints one week and defaults to the latest week with a full slate. A week that is still being posted stays in the list and is labeled as partial.
+`fetch` writes `data/cache/logs.csv` from the nflverse weekly files, regular-season QB, RB, WR, and TE games from 2023 through the latest season that release includes. The cache is gitignored. `predict` prints players in games that do not have a score yet. `serve` opens that board and keeps refitting it: the page reloads every 20 seconds, and completed games are downloaded about every three minutes. A finished game leaves the board once the schedule has a score. `serve --sample` still opens the synthetic backtest.
 
-Open the board, pick a week, and select a player. The context window lists each input, and the bar is that slot's pull on the surplus. The pulls plus the intercept equal the surplus. Actual points are shown for grading and were not an input.
+Open the board and select a player. The context window lists each input, and the bar is that slot's pull on the surplus. The pulls plus the intercept equal the surplus. Upcoming games have no actual points.
 
 Hit rate is how often the listed players beat the form line. Base rate is that same count among everyone whose line was at least 6 PPR.
 

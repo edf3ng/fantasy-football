@@ -88,7 +88,7 @@ def _player(item) -> dict:
         "score": item.score,
         "sigma": prediction.sigma,
         "actual": row.actual,
-        "beat": row.actual > row.values["projection"],
+        "beat": None if row.actual is None else row.actual > row.values["projection"],
         "intercept": prediction.intercept,
         "pull_sum": pull_sum,
         "line": {
